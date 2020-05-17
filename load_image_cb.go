@@ -8,29 +8,29 @@ import (
 	"syscall/js"
 )
 
-func (s *Shimmer) setupOnImgLoadCb() {
-	s.onImgLoadCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+func (w *Wonder) setupOnImgLoadCb() {
+	w.onImgLoadCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		array := args[0]
-		s.inBuf = make([]uint8, array.Get("byteLength").Int())
-		js.CopyBytesToGo(s.inBuf, array)
+		w.inBuf = make([]uint8, array.Get("byteLength").Int())
+		js.CopyBytesToGo(w.inBuf, array)
 
-		reader := bytes.NewReader(s.inBuf)
+		reader := bytes.NewReader(w.inBuf)
 		var err error
-		s.sourceImg, _, err = image.Decode(reader)
+		w.sourceImg, _, err = image.Decode(reader)
 		if err != nil {
-			s.log(err.Error())
+			w.log(err.Error())
 			return nil
 		}
-		s.log("Ready for operations")
+		w.log("Ready for operations")
 
 		// reset brightness and contrast sliders
-		js.Global().Get("document").
-			Call("getElementById", "brightness").
-			Set("value", 0)
+		// js.Global().Get("document").
+		// 	Call("getElementById", "brightness").
+		// 	Set("value", 0)
 
-		js.Global().Get("document").
-			Call("getElementById", "contrast").
-			Set("value", 0)
+		// js.Global().Get("document").
+		// 	Call("getElementById", "contrast").
+		// 	Set("value", 0)
 		return nil
 	})
 }
