@@ -3,6 +3,7 @@
 package wonder
 
 import (
+	"image/color"
 	"syscall/js"
 	"time"
 
@@ -40,67 +41,32 @@ func (w *Wonder) setupColorViewCb() {
 			return nil
 		}
 		colorViewStyle = val
+
+		if w.sourceImg != nil {
+			start := time.Now()
+			res := adjust.Apply(w.sourceImg, applyViewStyle)
+			w.updateImage(res, start)
+		}
+
 		args[0].Call("preventDefault")
 		return nil
 	})
 }
 
-func (w *Wonder) setupBrightnessCb() {
-	w.brightnessCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// quick return if no source image is yet uploaded
-		if w.sourceImg == nil {
-			return nil
-		}
-		delta := args[0].Get("target").Get("valueAsNumber").Float()
-		start := time.Now()
-		res := adjust.Brightness(w.sourceImg, delta)
-		w.updateImage(res, start)
-		args[0].Call("preventDefault")
-		return nil
-	})
-}
+func applyViewStyle(input color.RGBA) color.RGBA {
+	// TODO update the input based on the `colorViewStyle`
 
-func (w *Wonder) setupContrastCb() {
-	w.contrastCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// quick return if no source image is yet uploaded
-		if w.sourceImg == nil {
-			return nil
-		}
-		delta := args[0].Get("target").Get("valueAsNumber").Float()
-		start := time.Now()
-		res := adjust.Contrast(w.sourceImg, delta)
-		w.updateImage(res, start)
-		args[0].Call("preventDefault")
-		return nil
-	})
-}
+	switch colorViewStyle {
+	case redOnlyViewStyle:
+		return color.RGBA{input.R, 0, 0, input.A}
+	case greenOnlyViewStyle:
+		return color.RGBA{0, input.G, 0, input.A}
+	case blueOnlyViewStyle:
+		return color.RGBA{0, 0, input.B, input.A}
 
-func (w *Wonder) setupHueCb() {
-	w.hueCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// quick return if no source image is yet uploaded
-		if w.sourceImg == nil {
-			return nil
-		}
-		delta := args[0].Get("target").Get("valueAsNumber").Int()
-		start := time.Now()
-		res := adjust.Hue(w.sourceImg, delta)
-		w.updateImage(res, start)
-		args[0].Call("preventDefault")
-		return nil
-	})
-}
-
-func (w *Wonder) setupSatCb() {
-	w.satCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// quick return if no source image is yet uploaded
-		if w.sourceImg == nil {
-			return nil
-		}
-		delta := args[0].Get("target").Get("valueAsNumber").Float()
-		start := time.Now()
-		res := adjust.Saturation(w.sourceImg, delta)
-		w.updateImage(res, start)
-		args[0].Call("preventDefault")
-		return nil
-	})
+	case normalViewStyle, shiftingViewStyle:
+		fallthrough
+	default:
+		return input // color.RGBA{input.R, input.G, input.B, input.A}
+	}
 }
