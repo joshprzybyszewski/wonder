@@ -3,11 +3,13 @@
 package wonder
 
 import (
+	"image"
 	"image/color"
 	"syscall/js"
 	"time"
 
 	"github.com/anthonynsimon/bild/adjust"
+	"github.com/anthonynsimon/bild/clone"
 )
 
 const (
@@ -42,20 +44,30 @@ func (w *Wonder) setupColorViewCb() {
 		}
 		colorViewStyle = val
 
-		if w.sourceImg != nil {
-			start := time.Now()
-			res := adjust.Apply(w.sourceImg, applyViewStyle)
-			w.updateImage(res, start)
-		}
+		w.updateImageForViewStyle()
 
 		args[0].Call("preventDefault")
 		return nil
 	})
 }
 
-func applyViewStyle(input color.RGBA) color.RGBA {
-	// TODO update the input based on the `colorViewStyle`
+func (w *Wonder) updateImageForViewStyle() {
+	if w.sourceImg != nil {
+		start := time.Now()
+		var res *image.RGBA
 
+		switch colorViewStyle {
+		case normalViewStyle:
+			res = clone.AsRGBA(w.sourceImg)
+		default:
+			res = adjust.Apply(w.sourceImg, applyViewStyle)
+		}
+
+		w.updateImage(res, start)
+	}
+}
+
+func applyViewStyle(input color.RGBA) color.RGBA {
 	switch colorViewStyle {
 	case redOnlyViewStyle:
 		return color.RGBA{input.R, 0, 0, input.A}
