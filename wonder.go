@@ -13,13 +13,11 @@ import (
 )
 
 type Wonder struct {
-	inBuf                    []uint8
-	outBuf                   bytes.Buffer
-	onImgLoadCb, shutdownCb  js.Func
-	colorViewCb              js.Func
-	brightnessCb, contrastCb js.Func
-	hueCb, satCb             js.Func
-	sourceImg                image.Image
+	inBuf                   []uint8
+	outBuf                  bytes.Buffer
+	onImgLoadCb, shutdownCb js.Func
+	colorViewCb             js.Func
+	sourceImg               image.Image
 
 	console js.Value
 	done    chan struct{}
@@ -53,10 +51,7 @@ func (w *Wonder) Start() {
 	<-w.done
 	w.log("Shutting down app")
 	w.onImgLoadCb.Release()
-	w.brightnessCb.Release()
-	w.contrastCb.Release()
-	w.hueCb.Release()
-	w.satCb.Release()
+	w.colorViewCb.Release()
 	w.shutdownCb.Release()
 }
 
