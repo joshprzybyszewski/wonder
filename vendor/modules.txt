@@ -1,0 +1,10 @@
+# github.com/anthonynsimon/bild v0.12.0
+## explicit
+github.com/anthonynsimon/bild/adjust
+github.com/anthonynsimon/bild/clone
+github.com/anthonynsimon/bild/imgio
+github.com/anthonynsimon/bild/math/f64
+github.com/anthonynsimon/bild/parallel
+github.com/anthonynsimon/bild/util
+# golang.org/x/image v0.0.0-20190703141733-d6a02ce849c9
+golang.org/x/image/bmp
