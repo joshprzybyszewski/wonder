@@ -45,26 +45,6 @@ func (w *Wonder) Start() {
 		Call("getElementById", "colorViewRadioForm").
 		Call("addEventListener", "change", w.colorViewCb)
 
-	// w.setupBrightnessCb()
-	// js.Global().Get("document").
-	// 	Call("getElementById", "brightness").
-	// 	Call("addEventListener", "change", w.brightnessCb)
-
-	// w.setupContrastCb()
-	// js.Global().Get("document").
-	// 	Call("getElementById", "contrast").
-	// 	Call("addEventListener", "change", w.contrastCb)
-
-	// w.setupHueCb()
-	// js.Global().Get("document").
-	// 	Call("getElementById", "hue").
-	// 	Call("addEventListener", "change", w.hueCb)
-
-	// w.setupSatCb()
-	// js.Global().Get("document").
-	// 	Call("getElementById", "sat").
-	// 	Call("addEventListener", "change", w.satCb)
-
 	w.setupShutdownCb()
 	js.Global().Get("document").
 		Call("getElementById", "close").

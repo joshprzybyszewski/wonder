@@ -23,14 +23,6 @@ func (w *Wonder) setupOnImgLoadCb() {
 		}
 		w.log("Ready for operations")
 
-		// reset brightness and contrast sliders
-		// js.Global().Get("document").
-		// 	Call("getElementById", "brightness").
-		// 	Set("value", 0)
-
-		// js.Global().Get("document").
-		// 	Call("getElementById", "contrast").
-		// 	Set("value", 0)
 		return nil
 	})
 }
