@@ -16,6 +16,7 @@ type Wonder struct {
 	inBuf                   []uint8
 	outBuf                  bytes.Buffer
 	onImgLoadCb, shutdownCb js.Func
+	onProcessVideoStream    js.Func
 	colorViewCb             js.Func
 	sourceImg               image.Image
 
@@ -36,7 +37,10 @@ func New() *Wonder {
 func (w *Wonder) Start() {
 	// Setup callbacks
 	w.setupOnImgLoadCb()
+	w.setupProcessVideoStream()
+
 	js.Global().Set("loadImage", w.onImgLoadCb)
+	js.Global().Set("processVideoStream", w.onProcessVideoStream)
 
 	w.setupColorViewCb()
 	js.Global().Get("document").
@@ -51,6 +55,7 @@ func (w *Wonder) Start() {
 	<-w.done
 	w.log("Shutting down app")
 	w.onImgLoadCb.Release()
+	w.onProcessVideoStream.Release()
 	w.colorViewCb.Release()
 	w.shutdownCb.Release()
 }

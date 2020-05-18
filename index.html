@@ -15,6 +15,19 @@
 		.separator {
 			clear: both;
 		}
+		body {
+			margin: 0px 0px;
+			padding: 0px 0px;
+		}
+		.vidContainer {
+			margin: 0px auto;
+			border: 10px #333 solid;
+		}
+		.videoElem {
+			background-color: #666;
+			max-width: 100%;
+			max-height: 100%;
+		}
 	</style>
 </head>
 <body>
@@ -46,6 +59,19 @@
 		<image id="sourceImg" class="image" />
 		<image id="targetImg" class="image" />
 	</div>
+
+	<h2>
+		Video
+	</h2>
+
+	<p class="centerImageNoBorder">
+		<div class="vidContainer" id="videoContainer" style="width: 500px; height: 375px;">
+			<video autoplay="true" class="vidElem" id="videoElement" width=500 height=375></video>
+		</div>
+		<div class="vidContainer" id="canvasContainer" style="width: 500px; height: 375px;">
+			<canvas class="vidElem" id="videoCanvas" width=500 height=375></canvas>
+		</div>
+	</p>
 
 	<h3>
 		Debug
@@ -94,6 +120,25 @@
 			imageType = this.files[0].type;
 			reader.readAsArrayBuffer(this.files[0]);
 		});
+
+		var video = document.querySelector("#videoElement");
+
+		if (navigator.mediaDevices.getUserMedia) {
+		// var front = false;
+		// document.getElementById('flip-button').onclick = function() { front = !front; };
+
+		// var constraints = { video: { facingMode: (front? "user" : "environment") } };
+		// navigator.mediaDevices.getUserMedia(constraints)
+		// navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+		navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+			.then(function (stream) {
+				processVideoStream(stream)
+				video.srcObject = stream;
+			})
+			.catch(function (err0r) {
+				console.log("error while loading webcame video");
+			});
+		}
 	</script>
 </body>
 </html>
