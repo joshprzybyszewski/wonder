@@ -50,9 +50,16 @@ type videoProcessor struct {
 }
 
 func (v *videoProcessor) timerCB() {
+	t0 := time.Now()
 	v.computeFrame()
 
-	time.AfterFunc(16*time.Millisecond, v.timerCB)
+	dur := time.Since(t0)
+	waitTime := (16 * time.Millisecond) - dur
+	if waitTime < time.Millisecond {
+		waitTime = time.Millisecond
+	}
+	go v.log(`computeFrame took: ` + strconv.Itoa(int(dur)/1000) + `us`)
+	time.AfterFunc(waitTime, v.timerCB)
 }
 
 func (v *videoProcessor) updateWidthHeight() {
@@ -79,6 +86,10 @@ func (v *videoProcessor) load() {
 	}), false)
 }
 
+func (v *videoProcessor) log(msg string) {
+	v.console.Call("log", msg)
+}
+
 func (v *videoProcessor) computeFrame() {
 	if v.width <= 0 || v.height <= 0 {
 		v.updateWidthHeight()
@@ -87,31 +98,71 @@ func (v *videoProcessor) computeFrame() {
 	v.ctx2d.Call(`drawImage`, v.video, 0, 0, v.width, v.height)
 
 	frame := v.ctx2d.Call(`getImageData`, 0, 0, v.width, v.height)
-	dataSlice := frame.Get(`data`)
-	dataLen := dataSlice.Get(`length`).Int()
-	if dataLen <= 0 {
-		v.console.Call("log", `dataSlice string: `+dataSlice.Type().String()+` with len: `+strconv.Itoa(dataLen))
+
+	var dataSlice js.Value
+	switch colorViewStyle {
+	case normalViewStyle:
+		// do not populate the dataBuf
+	default:
+		dataSlice = frame.Get(`data`)
+
+		dataLen := dataSlice.Get(`length`).Int()
+		if dataLen <= 0 {
+			v.log(`dataSlice string: ` + dataSlice.Type().String() + ` with len: ` + strconv.Itoa(dataLen))
+			return
+		}
+
+		if cap(v.dataBuf) < dataLen {
+			v.dataBuf = make([]uint8, dataLen)
+		} else if len(v.dataBuf) < dataLen {
+			v.dataBuf = v.dataBuf[:dataLen]
+		}
+		js.CopyBytesToGo(v.dataBuf, dataSlice)
+		v.dataBuf = v.dataBuf[:dataLen]
+	}
+
+	switch colorViewStyle {
+	case redOnlyViewStyle:
+		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
+			// dataSlice.SetIndex(i4+0, v.dataBuf[i4+0])
+			dataSlice.SetIndex(i4+1, 0) // v.dataBuf[i4+1])
+			dataSlice.SetIndex(i4+2, 0) // v.dataBuf[i4+2])
+		}
+	case greenOnlyViewStyle:
+		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
+			dataSlice.SetIndex(i4+0, 0) // v.dataBuf[i4+0])
+			// dataSlice.SetIndex(i4+1, 0) // v.dataBuf[i4+1])
+			dataSlice.SetIndex(i4+2, 0) // v.dataBuf[i4+2])
+		}
+	case blueOnlyViewStyle:
+		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
+			dataSlice.SetIndex(i4+0, 0) // v.dataBuf[i4+0])
+			dataSlice.SetIndex(i4+1, 0) // v.dataBuf[i4+1])
+			// dataSlice.SetIndex(i4+2, 0) // v.dataBuf[i4+2])
+		}
+
+	case normalViewStyle, shiftingViewStyle:
+		// do nothing
+	default:
+		// oof developer error. return early
 		return
 	}
 
-	if cap(v.dataBuf) < dataLen {
-		v.dataBuf = make([]uint8, dataLen)
-	} else if len(v.dataBuf) < dataLen {
-		v.dataBuf = v.dataBuf[:dataLen]
-	}
-	js.CopyBytesToGo(v.dataBuf, dataSlice)
-	v.dataBuf = v.dataBuf[:dataLen]
-
-	for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
-		grey := (v.dataBuf[i4+0] + v.dataBuf[i4+1] + v.dataBuf[i4+2]) / 3
-
-		dataSlice.SetIndex(i4+0, grey) // as opposed to v.dataBuf[i4+0] = grey
-		dataSlice.SetIndex(i4+1, grey)
-		dataSlice.SetIndex(i4+2, grey)
-		// v.dataBuf[i4+0] = grey
-		// v.dataBuf[i4+1] = grey
-		// v.dataBuf[i4+2] = grey
-	}
-
 	v.ctx2d.Call(`putImageData`, frame, 0, 0)
+
+	/*
+		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
+			// grey := (v.dataBuf[i4+0] + v.dataBuf[i4+1] + v.dataBuf[i4+2]) / 3
+
+			dataSlice.SetIndex(i4+0, v.dataBuf[i4+0]/2) // as opposed to v.dataBuf[i4+0] = grey
+			dataSlice.SetIndex(i4+1, v.dataBuf[i4+1]/2)
+			dataSlice.SetIndex(i4+2, v.dataBuf[i4+2]/2)
+			// dataSlice.SetIndex(i4+0, grey) // as opposed to v.dataBuf[i4+0] = grey
+			// dataSlice.SetIndex(i4+1, grey)
+			// dataSlice.SetIndex(i4+2, grey)
+			// v.dataBuf[i4+0] = grey
+			// v.dataBuf[i4+1] = grey
+			// v.dataBuf[i4+2] = grey
+		}
+	*/
 }
