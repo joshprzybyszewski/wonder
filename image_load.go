@@ -51,8 +51,8 @@ type videoProcessor struct {
 
 func (v *videoProcessor) timerCB() {
 	v.computeFrame()
-	time.Sleep(16 * time.Millisecond)
-	v.timerCB()
+
+	time.AfterFunc(16*time.Millisecond, v.timerCB)
 }
 
 func (v *videoProcessor) updateWidthHeight() {
