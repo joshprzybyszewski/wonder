@@ -46,7 +46,11 @@ type videoProcessor struct {
 	ctx2d         js.Value
 	console       js.Value
 
-	dataBuf []uint8
+	dataBuf      []uint8
+	scaledData   [101][256]uint8
+	numFrames    int
+	maxNumFrames int
+	rP, gP, bP   []int
 }
 
 func (v *videoProcessor) timerCB() {
@@ -68,6 +72,14 @@ func (v *videoProcessor) updateWidthHeight() {
 }
 
 func (v *videoProcessor) load() {
+	v.scaledData = [101][256]uint8{}
+	for perc := 0; perc < 101; perc++ {
+		for val := 0; val < 256; val++ {
+			v.scaledData[perc][val] = uint8((float64(val) * float64(perc)) / 100.0)
+		}
+	}
+	v.buildShifter()
+
 	v.console = js.Global().Get("console")
 	v.video = js.Global().Get("document").
 		Call("getElementById", "videoElement")
@@ -84,6 +96,102 @@ func (v *videoProcessor) load() {
 
 		return nil
 	}), false)
+}
+
+func (v *videoProcessor) buildShifter() {
+	// here's the goal. we're going to set percentages for each RGB
+	// value in the following manner. As you move from left to right,
+	// time is progressing
+	// r: 100 - 100 -  0  -  0  - 100 - 100 -  0  - 100
+	// g: 100 -  0  - 100 -  0  -  0  - 100 - 100 - 100
+	// b: 100 -  0  -  0  - 100 - 100 -  0  - 100 - 100
+
+	const minArrVal = 0
+	const maxArrVal = 100
+
+	vLong := 512
+	v.rP = make([]int, vLong)
+	v.gP = make([]int, vLong)
+	v.bP = make([]int, vLong)
+	fill := func(startI, numEntries, val int, arr []int) {
+		if val < minArrVal {
+			val = minArrVal
+		} else if val > maxArrVal {
+			val = maxArrVal
+		}
+		for i := 0; i < numEntries; i++ {
+			arr[i+startI] = val
+		}
+	}
+	dec := func(startI, numEntries, startVal, decVal int, arr []int) {
+		arr[startI] = startVal
+		var newVal int
+		for i := 1; i < numEntries; i++ {
+			arrI := startI + i
+			newVal = arr[arrI-1] - decVal
+			if newVal < minArrVal {
+				newVal = minArrVal
+			}
+			arr[arrI] = newVal
+		}
+	}
+	inc := func(startI, numEntries, startVal, incVal int, arr []int) {
+		arr[startI] = startVal
+		var newVal int
+		for i := 1; i < numEntries; i++ {
+			arrI := startI + i
+			newVal = arr[arrI-1] + incVal
+			if newVal > maxArrVal {
+				newVal = maxArrVal
+			}
+			arr[arrI] = newVal
+		}
+	}
+
+	numFrames := 50 // this is easier if we have a divisor of 100
+	interval := maxArrVal / numFrames
+	i := 0
+	fill(i, numFrames, maxArrVal, v.rP)
+	dec(i, numFrames, maxArrVal, interval, v.gP)
+	dec(i, numFrames, maxArrVal, interval, v.bP)
+
+	i += numFrames
+	dec(i, numFrames, maxArrVal, interval, v.rP)
+	inc(i, numFrames, minArrVal, interval, v.gP)
+	fill(i, numFrames, minArrVal, v.bP)
+
+	i += numFrames
+	fill(i, numFrames, minArrVal, v.rP)
+	dec(i, numFrames, maxArrVal, interval, v.gP)
+	inc(i, numFrames, minArrVal, interval, v.bP)
+
+	i += numFrames
+	inc(i, numFrames, minArrVal, interval, v.rP)
+	fill(i, numFrames, minArrVal, v.gP)
+	fill(i, numFrames, maxArrVal, v.bP)
+
+	i += numFrames
+	fill(i, numFrames, maxArrVal, v.rP)
+	inc(i, numFrames, minArrVal, interval, v.gP)
+	dec(i, numFrames, maxArrVal, interval, v.bP)
+
+	i += numFrames
+	dec(i, numFrames, maxArrVal, interval, v.rP)
+	fill(i, numFrames, maxArrVal, v.gP)
+	inc(i, numFrames, minArrVal, interval, v.bP)
+
+	i += numFrames
+	inc(i, numFrames, minArrVal, interval, v.rP)
+	fill(i, numFrames, maxArrVal, v.gP)
+	fill(i, numFrames, maxArrVal, v.bP)
+
+	v.maxNumFrames = i + numFrames
+	if v.maxNumFrames > vLong {
+		v.log(`should have panicked`)
+	}
+	v.rP = v.rP[:v.maxNumFrames]
+	v.gP = v.gP[:v.maxNumFrames]
+	v.bP = v.bP[:v.maxNumFrames]
 }
 
 func (v *videoProcessor) log(msg string) {
@@ -124,24 +232,43 @@ func (v *videoProcessor) computeFrame() {
 	switch colorViewStyle {
 	case redOnlyViewStyle:
 		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
-			// dataSlice.SetIndex(i4+0, v.dataBuf[i4+0])
-			dataSlice.SetIndex(i4+1, 0) // v.dataBuf[i4+1])
-			dataSlice.SetIndex(i4+2, 0) // v.dataBuf[i4+2])
+			// dataSlice.SetIndex(i4+0, v.dataBuf[i4])
+			dataSlice.SetIndex(i4+1, 0)
+			dataSlice.SetIndex(i4+2, 0)
 		}
 	case greenOnlyViewStyle:
 		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
-			dataSlice.SetIndex(i4+0, 0) // v.dataBuf[i4+0])
-			// dataSlice.SetIndex(i4+1, 0) // v.dataBuf[i4+1])
-			dataSlice.SetIndex(i4+2, 0) // v.dataBuf[i4+2])
+			dataSlice.SetIndex(i4+0, 0)
+			// dataSlice.SetIndex(i4+1, v.dataBuf[i4+1])
+			dataSlice.SetIndex(i4+2, 0)
 		}
 	case blueOnlyViewStyle:
 		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
-			dataSlice.SetIndex(i4+0, 0) // v.dataBuf[i4+0])
-			dataSlice.SetIndex(i4+1, 0) // v.dataBuf[i4+1])
-			// dataSlice.SetIndex(i4+2, 0) // v.dataBuf[i4+2])
+			dataSlice.SetIndex(i4+0, 0)
+			dataSlice.SetIndex(i4+1, 0)
+			// dataSlice.SetIndex(i4+2, v.dataBuf[i4+2])
 		}
 
-	case normalViewStyle, shiftingViewStyle:
+	case shiftingViewStyle:
+		rPerc := v.rP[v.numFrames]
+		gPerc := v.gP[v.numFrames]
+		bPerc := v.bP[v.numFrames]
+
+		var rVal, gVal, bVal uint8
+		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
+			rVal = v.dataBuf[i4]
+			dataSlice.SetIndex(i4, v.scaledData[rPerc][rVal])
+			gVal = v.dataBuf[i4+1]
+			dataSlice.SetIndex(i4+1, v.scaledData[gPerc][gVal])
+			bVal = v.dataBuf[i4+1]
+			dataSlice.SetIndex(i4+2, v.scaledData[bPerc][bVal])
+		}
+		v.numFrames++
+		if v.numFrames == v.maxNumFrames {
+			v.numFrames = 0
+		}
+
+	case normalViewStyle:
 		// do nothing
 	default:
 		// oof developer error. return early
@@ -149,20 +276,4 @@ func (v *videoProcessor) computeFrame() {
 	}
 
 	v.ctx2d.Call(`putImageData`, frame, 0, 0)
-
-	/*
-		for i4 := 0; i4+2 < len(v.dataBuf); i4 += 4 {
-			// grey := (v.dataBuf[i4+0] + v.dataBuf[i4+1] + v.dataBuf[i4+2]) / 3
-
-			dataSlice.SetIndex(i4+0, v.dataBuf[i4+0]/2) // as opposed to v.dataBuf[i4+0] = grey
-			dataSlice.SetIndex(i4+1, v.dataBuf[i4+1]/2)
-			dataSlice.SetIndex(i4+2, v.dataBuf[i4+2]/2)
-			// dataSlice.SetIndex(i4+0, grey) // as opposed to v.dataBuf[i4+0] = grey
-			// dataSlice.SetIndex(i4+1, grey)
-			// dataSlice.SetIndex(i4+2, grey)
-			// v.dataBuf[i4+0] = grey
-			// v.dataBuf[i4+1] = grey
-			// v.dataBuf[i4+2] = grey
-		}
-	*/
 }
